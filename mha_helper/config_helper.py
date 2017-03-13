@@ -1,4 +1,5 @@
 # (c) 2015, Ovais Tariq <me@ovaistariq.net>
+# (c) 2017, Nahir Mohamed <nahir.mohamed@gmail.com>
 #
 # This file is part of mha_helper
 #
@@ -27,6 +28,7 @@ class ConfigHelper(object):
     MHA_HELPER_CONFIG_DIR = '/etc/mha-helper'
     MHA_HELPER_CONFIG_OPTIONS = ['writer_vip_cidr', 'vip_type', 'report_email', 'smtp_host', 'requires_sudo',
                                  'super_read_only', 'requires_arping', 'cluster_interface', 'kill_after_timeout']
+    MHA_HELPER_CONFIG_OPTIONS_AWS = ['aws_instance_id', 'aws_instance_network_interface_id', 'aws_access_key_id', 'aws_secret_access_key', 'aws_region']
     VIP_PROVIDER_TYPE_NONE = 'none'
     VIP_PROVIDER_TYPE_METAL = 'metal'
     VIP_PROVIDER_TYPE_AWS = 'aws'
@@ -65,13 +67,28 @@ class ConfigHelper(object):
 
                     default_config[opt] = opt_value
 
+                if config_parser.has_section('aws') and default_config['vip_type'] == ConfigHelper.VIP_PROVIDER_TYPE_AWS:
+                    for opt in ConfigHelper.MHA_HELPER_CONFIG_OPTIONS_AWS:
+                        if opt == 'aws_instance_id' or opt == 'aws_instance_network_interface_id':
+                            opt_value = None
+                        else:
+                            opt_value = config_parser.get('aws', opt)
+                        if not ConfigHelper.validate_config_value(opt, opt_value):
+                            print("Parsing the option '%s' with value '%s' failed" % (opt, opt_value))
+                            return False
+
+                        default_config[opt] = opt_value
+                else:
+                    print("Using vip_type %s but missing section 'aws' in config file" % (default_config['vip_type']))
+                    return False
+
                 # Setup host based configs. Initially hosts inherit config from the default section but override them
                 # within their own sections
                 for hostname in config_parser.sections():
                     ConfigHelper.host_config[hostname] = dict()
 
                     # We read the options from the host section of the config
-                    for opt in ConfigHelper.MHA_HELPER_CONFIG_OPTIONS:
+                    for opt in ConfigHelper.MHA_HELPER_CONFIG_OPTIONS + ConfigHelper.MHA_HELPER_CONFIG_OPTIONS_AWS:
                         if config_parser.has_option(hostname, opt) and opt != 'writer_vip_cidr' and opt != 'smtp_host':
                             ConfigHelper.host_config[hostname][opt] = config_parser.get(hostname, opt)
 
@@ -79,7 +96,7 @@ class ConfigHelper(object):
                     # section we set that to what is defined in the default section, writer_vip_cidr is always read from
                     # the default section because it has to be global for the entire replication cluster
                     # If the option is not defined in both default and host section, we throw an error
-                    for opt in ConfigHelper.MHA_HELPER_CONFIG_OPTIONS:
+                    for opt in ConfigHelper.MHA_HELPER_CONFIG_OPTIONS + ConfigHelper.MHA_HELPER_CONFIG_OPTIONS_AWS:
                         if (opt not in ConfigHelper.host_config[hostname] or opt == 'writer_vip_cidr' or
                                 opt == 'smtp_host'):
                             # If the host section did not define the config option and the default config also does
@@ -125,6 +142,27 @@ class ConfigHelper(object):
 
         if config_key == 'super_read_only':
             return config_value in ['yes', 'no']
+
+        if config_key == 'aws_instance_id':
+            if config_value is None:
+                return True
+            else:
+                return ConfigHelper.validate_aws_instance_id(config_value)
+
+        if config_key == 'aws_instance_network_interface_id':
+            if config_value is None:
+                return True
+            else:
+                return ConfigHelper.validate_aws_instance_network_interface_id(config_value)
+
+        if config_key == 'aws_access_key_id':
+            return True
+
+        if config_key == 'aws_secret_access_key':
+            return True
+
+        if config_key == 'aws_region':
+            return True
 
     @staticmethod
     def validate_ip_address(ip_address):
@@ -172,6 +210,21 @@ class ConfigHelper(object):
             return False
 
         return True
+
+    @staticmethod
+    def validate_aws_instance_id(aws_instance_id):
+        pattern = 'i-.+[a-zA-Z0-9]'
+        if len(aws_instance_id) == 19 or len( aws_instance_id) == 10:
+            return bool(re.match(pattern, aws_instance_id))
+        else:
+            return False
+    @staticmethod
+    def validate_aws_instance_network_interface_id(aws_instance_network_interface_id):
+        pattern = 'eni-.+[a-zA-Z0-9]'
+        if len(aws_instance_id) == 12:
+            return bool(re.match(pattern, aws_instance_network_interface_id))
+        else:
+            return False
 
     def __init__(self, host):
         self._host = host
@@ -222,3 +275,17 @@ class ConfigHelper(object):
     def get_cluster_interface(self):
         return self._host_config['cluster_interface']
 
+    def get_aws_instance_id(self):
+        return self._host_config['aws_instance_id']
+
+    def get_aws_instance_network_interface_id(self):
+        return self._host_config['aws_instance_network_interface_id']
+
+    def get_aws_access_key_id(self):
+        return self._host_config['aws_access_key_id']
+
+    def get_aws_secret_access_key(self):
+        return self._host_config['aws_secret_access_key']
+
+    def get_aws_region(self):
+        return self._host_config['aws_region']

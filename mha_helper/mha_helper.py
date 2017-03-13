@@ -22,6 +22,7 @@ import re
 from mysql_helper import MySQLHelper
 from config_helper import ConfigHelper
 from vip_metal_helper import VIPMetalHelper
+from eip_aws_helper import EIPAwsHelper
 
 
 class MHAHelper(object):
@@ -380,6 +381,7 @@ class MHAHelper(object):
             if not vip_helper.remove_vip():
                 return False
         elif vip_type == ConfigHelper.VIP_PROVIDER_TYPE_AWS:
+            # No need to remove Elastic IP as it will be automatically removed when added to the new master
             pass
         elif vip_type == ConfigHelper.VIP_PROVIDER_TYPE_OS:
             pass
@@ -397,7 +399,9 @@ class MHAHelper(object):
             if not vip_helper.assign_vip():
                 return False
         elif vip_type == ConfigHelper.VIP_PROVIDER_TYPE_AWS:
-            pass
+            vip_helper = EIPAwsHelper(host, host_ip, ssh_user, ssh_port, ssh_options)
+            if not vip_helper.assign_eip():
+                return False
         elif vip_type == ConfigHelper.VIP_PROVIDER_TYPE_OS:
             pass
         else:
@@ -412,7 +416,7 @@ class MHAHelper(object):
         if vip_type == ConfigHelper.VIP_PROVIDER_TYPE_METAL:
             return VIPMetalHelper(host, host_ip, ssh_user, ssh_port, ssh_options).has_vip()
         elif vip_type == ConfigHelper.VIP_PROVIDER_TYPE_AWS:
-            pass
+            return EIPAwsHelper(host, host_ip, ssh_user, ssh_port, ssh_options).has_eip()
         elif vip_type == ConfigHelper.VIP_PROVIDER_TYPE_OS:
             pass
         else:

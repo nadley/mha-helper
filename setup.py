@@ -66,7 +66,8 @@ setup(
              'scripts/mysql_failover',
              'scripts/mysql_online_failover'],
     install_requires=['PyMySQL>=0.6.3',
-                      'paramiko>=1.10.0'],
+                      'paramiko>=1.10.0',
+                      'boto3>=1.4.4'],
     keywords='mha_helper, mha, mysql, failover, high availability',
     classifiers=[
         "Programming Language :: Python :: 2",
